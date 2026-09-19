@@ -27,13 +27,12 @@ jobs:
     - name: Restore NuGet Packages
       run: nuget restore alx.sln
 
-    # [ИСПРАВЛЕНО] Добавлен флаг /p:AdditionalOptions="/FIyaml-cpp/yaml.h /FIcryptopp/sha.h"
-    # Это принудительно заставляет компилятор вшить нужные заголовочные файлы в каждый .cpp файл проекта перед компиляцией.
-    # Так мы полностью чиним ошибки "is not a class or namespace name" без изменения самих исходников.
-    # Также добавлен макрос CRYPTOPP_DISABLE_ASM для совместимости со сборкой x86.
+    # [ИСПРАВЛЕНО] Флаги инклуда заголовков вынесены в свойство CL_AdditionalOptions.
+    # Это заставит компилятор MSVC автоматически вшить #include <yaml-cpp/yaml.h> и компоненты CryptoPP
+    # в каждый компилируемый файл, полностью устраняя ошибки "is not a class or namespace name".
     - name: Compile Solution
       run: |
-        msbuild alx.sln /t:Rebuild /p:Configuration=Release /p:Platform="Win32" /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:UseVcpkgIntegration=true /p:VcpkgEnableManifest=false /p:VcpkgTriplet=x86-windows /p:AdditionalIncludeDirectories="C:\vcpkg\installed\x86-windows\include" /p:AdditionalLibraryDirectories="C:\vcpkg\installed\x86-windows\lib" /p:AdditionalOptions="/FIyaml-cpp/yaml.h /FIcryptopp/sha.h /FIcryptopp/cryptlib.h /DCRYPTOPP_DISABLE_ASM"
+        msbuild alx.sln /t:Rebuild /p:Configuration=Release /p:Platform="Win32" /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:UseVcpkgIntegration=true /p:VcpkgEnableManifest=false /p:VcpkgTriplet=x86-windows /p:AdditionalIncludeDirectories="C:\vcpkg\installed\x86-windows\include" /p:AdditionalLibraryDirectories="C:\vcpkg\installed\x86-windows\lib" /p:CL_AdditionalOptions="/FIyaml-cpp/yaml.h /FIcryptopp/sha.h /FIcryptopp/cryptlib.h" /p:DefineConstants="CRYPTOPP_DISABLE_ASM"
 
     # Сохраняем готовую DLL-ку
     - name: Save Compiled Files
