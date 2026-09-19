@@ -1,11 +1,26 @@
 #pragma warning(disable: 4996)
-#include <yaml-cpp/yaml.h>
+
+// 1. Исправляем совместимость с новой библиотекой Crypto++
 #include <cryptopp/sha.h>
 #include <cryptopp/cryptlib.h>
+namespace CryptoPP {
+    using SHA3 = SHA3_256; 
+}
 
-// Объявление пропущенных функций, чтобы компилятор их видел
-void SaveConfigurationFile(const std::string& filename);
-void LoadConfigurationFile(const std::string& filename);
+// 2. Исправляем совместимость с новой библиотекой yaml-cpp
+#include <yaml-cpp/yaml.h>
+inline bool operator!=(const YAML::Node& node, int value) {
+    if (value == 0) return node.IsDefined() && !node.IsNull();
+    return true;
+}
+inline bool operator!=(int value, const YAML::Node& node) {
+    return node != value;
+}
+
+// 3. Исправляем кривое объявление функций конфигурации
+void SaveConfigurationFile(const char* safe, const YAML::Node& node);
+void LoadConfigurationFile(const char* safe, const YAML::Node& node);
+
 
 #include "main.h"
 #include "helper.h"
