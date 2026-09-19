@@ -30,3 +30,20 @@ int main();
 void HandleCommand(std::string command);
 std::vector<DWORD> GetPlayersFromMessage(DWORD gameInstance, std::vector<std::string> argList);
 #endif
+#include <yaml-cpp/yaml.h>
+#include <string>
+
+// Исправление ошибок C3861 (ненайденные идентификаторы функций)
+void SaveConfigurationFile(const std::string& filename, const YAML::Node& config);
+void LoadConfigurationFile(const std::string& filename, YAML::Node& config);
+
+// Исправление ошибок C2678 (бинарный оператор != для YAML::Node)
+inline bool operator!=(const YAML::Node& node, int value) {
+    if (value == 0) {
+        return node.IsDefined() && !node.IsNull();
+    }
+    return true;
+}
+inline bool operator!=(int value, const YAML::Node& node) {
+    return node != value;
+}
