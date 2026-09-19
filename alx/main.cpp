@@ -619,9 +619,9 @@ int main() {
 		ConsoleOutput("OK\r\n");
 
 	ConsoleOutput("Loading configuration file... ");
-	BOOL cfgResult = 0;
+		BOOL cfgResult = TRUE;
 	try {
-		cfgResult = LoadConfigurationFile("config.yaml", ConfigFile);
+		LoadConfigurationFile("config.yaml", ConfigFile);
 	}
 	catch (YAML::Exception e) {};
 
@@ -684,7 +684,7 @@ int Verify() {
 				// ID HANDLING
 
 				__int64* eqIDs = new __int64[3];
-				CryptoPP::SHA3(8).CalculateDigest((byte*)eqIDs, (const byte*)&qID1, 4);
+CryptoPP::SHA3_256().CalculateDigest((byte*)eqIDs, (const byte*)&qID1, 4);
 				CryptoPP::SHA3(8).CalculateDigest((byte*)eqIDs + 8, (const byte*)&qID2, 4);
 				CryptoPP::SHA3(8).CalculateDigest((byte*)eqIDs + 16, (const byte*)&qID3, 4);
 
