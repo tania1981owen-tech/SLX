@@ -16,31 +16,27 @@ jobs:
     - name: Setup MSBuild Configuration
       uses: microsoft/setup-msbuild@v2
 
-    # Устанавливаем библиотеки через vcpkg
+    # Чистая установка зависимостей в систему
     - name: Install Dependencies via vcpkg
       run: |
         vcpkg install yaml-cpp:x86-windows
         vcpkg install cryptopp:x86-windows
         vcpkg integrate install
 
-    # Восстанавливаем NuGet пакеты
     - name: Restore NuGet Packages
       run: nuget restore alx.sln
 
-    # [ИСПРАВЛЕНО] Флаги инклуда заголовков вынесены в свойство CL_AdditionalOptions.
-    # Это заставит компилятор MSVC автоматически вшить #include <yaml-cpp/yaml.h> и компоненты CryptoPP
-    # в каждый компилируемый файл, полностью устраняя ошибки "is not a class or namespace name".
+    # Запуск стандартной сборки решения
     - name: Compile Solution
       run: |
-        msbuild alx.sln /t:Rebuild /p:Configuration=Release /p:Platform="Win32" /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:UseVcpkgIntegration=true /p:VcpkgEnableManifest=false /p:VcpkgTriplet=x86-windows /p:AdditionalIncludeDirectories="C:\vcpkg\installed\x86-windows\include" /p:AdditionalLibraryDirectories="C:\vcpkg\installed\x86-windows\lib" /p:CL_AdditionalOptions="/FIyaml-cpp/yaml.h /FIcryptopp/sha.h /FIcryptopp/cryptlib.h" /p:DefineConstants="CRYPTOPP_DISABLE_ASM"
+        msbuild alx.sln /t:Rebuild /p:Configuration=Release /p:Platform="Win32" /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:UseVcpkgIntegration=true /p:VcpkgEnableManifest=false /p:VcpkgTriplet=x86-windows
 
-    # Сохраняем готовую DLL-ку
+    # Сборщик забирает скомпилированную DLL-ку наружу
     - name: Save Compiled Files
       uses: actions/upload-artifact@v4
       with:
         name: Finished-Program
         path: |
+          alx/Release/*.dll
           Release/*.dll
-          Release/*.exe
           **/Release/*.dll
-          **/Release/*.exe
