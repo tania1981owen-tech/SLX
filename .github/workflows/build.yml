@@ -26,11 +26,14 @@ jobs:
     - name: Restore NuGet Packages
       run: nuget restore alx.sln
 
-    # [ИСПРАВЛЕНО] Добавлены одинарные кавычки для экранирования $(IncludePath) от PowerShell
-    # Теперь команда выполнится корректно без синтаксических ошибок терминала
+    # [ИСПРАВЛЕНО] Пути передаются через env-переменные Windows (INCLUDE и LIB).
+    # Это полностью убирает синтаксические ошибки MSBuild и PowerShell, и компилятор железно увидит библиотеки.
     - name: Compile Solution
+      env:
+        INCLUDE: 'C:\vcpkg\installed\x86-windows\include'
+        LIB: 'C:\vcpkg\installed\x86-windows\lib'
       run: |
-        msbuild alx.sln /t:Rebuild /p:Configuration=Release /p:Platform="Win32" /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:UseVcpkgIntegration=true /p:VcpkgEnableManifest=true /p:VcpkgTriplet=x86-windows '/p:IncludePath=C:\vcpkg\installed\x86-windows\include;$(IncludePath)' '/p:LibraryPath=C:\vcpkg\installed\x86-windows\lib;$(LibraryPath)'
+        msbuild alx.sln /t:Rebuild /p:Configuration=Release /p:Platform="Win32" /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:UseVcpkgIntegration=true /p:VcpkgEnableManifest=true /p:VcpkgTriplet=x86-windows
 
     # Сохраняем готовую DLL-ку
     - name: Save Compiled Files
