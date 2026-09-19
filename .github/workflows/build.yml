@@ -1,0 +1,38 @@
+name: Automated Windows Build
+
+# Сборка будет запускаться при каждом обновлении кода или вручную кнопкой
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    # Запускаем чистую Windows-машину с установленной Visual Studio
+    runs-on: windows-latest
+
+    steps:
+    # 1. Робот скачивает ваш код (sln, папку Project1 и все файлы)
+    - name: Clone repository
+      uses: actions/checkout@v4
+
+    # 2. Робот находит на сервере инструменты Visual Studio (MSBuild)
+    - name: Setup MSBuild Configuration
+      uses: microsoft/setup-msbuild@v2
+
+    # 3. Робот качает библиотеки и зависимости (NuGet), если они использовались в 2018 году
+    - name: Restore NuGet Packages
+      run: nuget restore *.sln
+
+    # 4. Самый главный шаг: Visual Studio начинает сборку проекта в режиме Release
+    - name: Compile Solution
+      run: msbuild *.sln /p:Configuration=Release /p:Platform="Any CPU"
+
+    # 5. Робот забирает готовые файлы (.exe или .dll) и упаковывает их для вас
+    - name: Save Compiled Files
+      uses: actions/upload-artifact@v4
+      with:
+        name: Finished-Program
+        path: |
+          **/bin/Release/**/*.exe
+          **/bin/Release/**/*.dll
