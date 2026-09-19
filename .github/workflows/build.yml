@@ -19,9 +19,11 @@ jobs:
     - name: Restore NuGet Packages
       run: nuget restore alx.sln
 
+    # [ИСПРАВЛЕНО] Убраны конфликтующие параметры платформы, чтобы компилятор использовал дефолтную конфигурацию проекта
     - name: Compile Solution
-      run: msbuild alx.sln /t:Rebuild /p:Configuration=Release /p:Platform="x64" /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0
+      run: msbuild alx.sln /t:Rebuild /p:Configuration=Release /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0
 
+    # [ИСПРАВЛЕНО] Сборщик ищет файлы во всех возможных папках Release (и x64, и Win32, и стандартных)
     - name: Save Compiled Files
       uses: actions/upload-artifact@v4
       with:
@@ -31,3 +33,5 @@ jobs:
           **/Release/*.exe
           x64/Release/*.dll
           x64/Release/*.exe
+          Release/*.dll
+          Release/*.exe
