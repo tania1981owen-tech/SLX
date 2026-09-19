@@ -1,3 +1,12 @@
+#pragma warning(disable: 4996)
+#include <yaml-cpp/yaml.h>
+#include <cryptopp/sha.h>
+#include <cryptopp/cryptlib.h>
+
+// Объявление пропущенных функций, чтобы компилятор их видел
+void SaveConfigurationFile(const std::string& filename);
+void LoadConfigurationFile(const std::string& filename);
+
 #include "main.h"
 #include "helper.h"
 #include "crc64.h"
