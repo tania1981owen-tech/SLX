@@ -1,27 +1,9 @@
 #pragma warning(disable: 4996)
-
-// 1. Исправляем совместимость с новой библиотекой Crypto++ и подключаем правильныйSHA3
 #include <cryptopp/cryptlib.h>
 #include <cryptopp/sha.h>
-#include <cryptopp/sha3.h> // [ДОБАВЛЕНО] Файл современной реализации SHA3
-namespace CryptoPP {
-    using SHA3 = SHA3_256; 
-}
-
-// 2. Исправляем совместимость с новой библиотекой yaml-cpp
+#include <cryptopp/sha3.h>
 #include <yaml-cpp/yaml.h>
-inline bool operator!=(const YAML::Node& node, int value) {
-    if (value == 0) return node.IsDefined() && !node.IsNull();
-    return true;
-}
-inline bool operator!=(int value, const YAML::Node& node) {
-    return node != value;
-}
 
-// 3. [ДОБАВЛЕНО] Дефайн-костыль для исправления кривого вызова void-функции в BOOL
-#define LoadConfigurationFile(safe, node) (LoadConfigurationFile(safe, node), TRUE)
-void SaveConfigurationFile(const char* safe, const YAML::Node& node);
-void LoadConfigurationFile(const char* safe, const YAML::Node& node);
 
 #include "main.h"
 #include "helper.h"
