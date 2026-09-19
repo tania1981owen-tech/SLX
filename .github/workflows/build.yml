@@ -16,22 +16,28 @@ jobs:
     - name: Setup MSBuild Configuration
       uses: microsoft/setup-msbuild@v2
 
+    # [ИСПРАВЛЕНО] Автоматически скачиваем и устанавливаем недостающие библиотеки yaml-cpp и cryptopp через vcpkg
+    - name: Install Dependencies via vcpkg
+      run: |
+        vcpkg install yaml-cpp:x86-windows
+        vcpkg install cryptopp:x86-windows
+        vcpkg integrate install
+
     - name: Restore NuGet Packages
       run: nuget restore alx.sln
 
-    # [ИСПРАВЛЕНО] Убраны конфликтующие параметры платформы, чтобы компилятор использовал дефолтную конфигурацию проекта
+    # [ИСПРАВЛЕНО] Подключаем установленные библиотеки vcpkg прямо в процесс компиляции решения
+    # Проект настроен как Release Win32 (судя по логам сборки)
     - name: Compile Solution
-      run: msbuild alx.sln /t:Rebuild /p:Configuration=Release /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0
+      run: msbuild alx.sln /t:Rebuild /p:Configuration=Release /p:Platform="Win32" /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:ForceImportBeforeCppTargets="${{ github.workspace }}\vcpkg\scripts\buildsystems\msbuild\vcpkg.targets"
 
-    # [ИСПРАВЛЕНО] Сборщик ищет файлы во всех возможных папках Release (и x64, и Win32, и стандартных)
+    # [ИСПРАВЛЕНО] Сохраняем готовую DLL-ку из папки сборки Win32 (папка Release в корне)
     - name: Save Compiled Files
       uses: actions/upload-artifact@v4
       with:
         name: Finished-Program
         path: |
-          **/Release/*.dll
-          **/Release/*.exe
-          x64/Release/*.dll
-          x64/Release/*.exe
           Release/*.dll
           Release/*.exe
+          **/Release/*.dll
+          **/Release/*.exe
