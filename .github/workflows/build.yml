@@ -23,6 +23,15 @@ jobs:
         vcpkg install cryptopp:x86-windows
         vcpkg integrate install
 
+    # Кладём cryptlib.lib туда, где его ищет старый проект (путь автора)
+    - name: Place cryptlib.lib where project expects it
+      shell: powershell
+      run: |
+        $targetDir = "C:\Users\Auscar\Documents\Programming\libraries\cryptopp562\Win32\Output\Release"
+        New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
+        Copy-Item "C:\vcpkg\installed\x86-windows\lib\cryptlib.lib" "$targetDir\cryptlib.lib" -Force
+        Write-Host "cryptlib.lib placed at $targetDir"
+
     - name: Restore NuGet Packages
       run: nuget restore alx.sln
 
