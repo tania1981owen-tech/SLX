@@ -16,101 +16,48 @@ jobs:
     - name: Setup MSBuild Configuration
       uses: microsoft/setup-msbuild@v2
 
-    # 1. Создаём overlay-порт для старой версии Crypto++
-    - name: Create custom overlay port for Crypto++ 5.6.2
-      shell: pwsh
+    # 1. Устанавливаем ТОЛЬКО yaml-cpp через vcpkg (он собирается нормально)
+    - name: Install yaml-cpp via vcpkg
       run: |
-        # Создаём структуру папок для overlay-порта
-        $overlayDir = "${{ github.workspace }}\overlay-ports\cryptopp"
-        New-Item -ItemType Directory -Force -Path $overlayDir | Out-Null
-
-        # Создаём vcpkg.json (манифест порта)
-        @'
-        {
-          "name": "cryptopp",
-          "version": "5.6.2",
-          "description": "Crypto++ 5.6.2 (overlay for legacy project)"
-        }
-        '@ | Out-File -FilePath "$overlayDir\vcpkg.json" -Encoding utf8
-
-        # Создаём portfile.cmake (инструкция по сборке)
-        @'
-        # Скачиваем исходники Crypto++ 5.6.2 с зеркала
-        vcpkg_download_distfile(ARCHIVE
-            URLS "http://rsync.belnet.be/pub/salixos.org/x86_64/extra-14.2/source/libraries/cryptopp/cryptopp562.zip"
-            FILENAME "cryptopp562.zip"
-            SHA512 0 # Отключаем проверку хеша для старого файла
-        )
-
-        # Распаковываем
-        vcpkg_extract_source_archive_ex(
-            OUT_SOURCE_PATH SOURCE_PATH
-            ARCHIVE "${ARCHIVE}"
-        )
-
-        # Копируем исходники в рабочую директорию
-        file(COPY "${SOURCE_PATH}/" DESTINATION "${CURRENT_BUILDTREES_DIR}/src/cryptopp-5.6.2")
-        set(SOURCE_PATH "${CURRENT_BUILDTREES_DIR}/src/cryptopp-5.6.2")
-
-        # Собираем библиотеку через msbuild
-        # Используем vcpkg_install_msbuild, который сам найдёт нужный .sln/.vcxproj
-        vcpkg_install_msbuild(
-            SOURCE_PATH "${SOURCE_PATH}"
-            PROJECT_SUBPATH "cryptlib.vcxproj"
-            USE_VCPKG_INTEGRATION
-            LICENSE_SUBPATH "License.txt"
-        )
-
-        # Убираем лишние файлы, оставляем только библиотеку и заголовки
-        file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug")
-        file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/tools")
-        file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/share")
-        '@ | Out-File -FilePath "$overlayDir\portfile.cmake" -Encoding utf8
-
-        Write-Host "Overlay port created at $overlayDir"
-        Get-ChildItem $overlayDir
-
-    # 2. Устанавливаем зависимости, используя наш overlay-порт
-    - name: Install Dependencies via vcpkg (with overlay)
-      shell: pwsh
-      run: |
-        # Устанавливаем yaml-cpp из официального репозитория
         vcpkg install yaml-cpp:x86-windows
-
-        # Устанавливаем cryptopp, указывая на наш overlay-порт
-        # --overlay-ports говорит vcpkg: "если ищешь порт cryptopp, посмотри сначала здесь"
-        vcpkg install cryptopp:x86-windows --overlay-ports="${{ github.workspace }}\overlay-ports"
-
         vcpkg integrate install
 
-        # Проверяем, что библиотека появилась
-        Write-Host "=== Содержимое vcpkg lib ==="
-        Get-ChildItem "C:\vcpkg\installed\x86-windows\lib" -Filter "*crypt*"
-
-    # 3. Кладём библиотеку туда, где её ждёт старый проект
-    - name: Place cryptlib.lib where project expects it
-      shell: powershell
+    # 2. Скачиваем готовый cryptlib.lib (Crypto++ 5.6.2, Win32, Release)
+    - name: Download prebuilt cryptlib.lib
+      shell: pwsh
       run: |
-        $srcDir = "C:\vcpkg\installed\x86-windows\lib"
-        $targetDir = "C:\Users\Auscar\Documents\Programming\libraries\cryptopp562\Win32\Output\Release"
-
-        New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
-
-        # Ищем любой .lib с crypt в имени
-        $cryptLib = Get-ChildItem $srcDir -Filter "*crypt*.lib" | Select-Object -First 1
-        if (-not $cryptLib) {
-          Write-Error "Не найден ни один *crypt*.lib в $srcDir"
-          Get-ChildItem $srcDir | Format-Table Name
+        $url = "https://github.com/weidai11/cryptopp/releases/download/CRYPTOPP_5_6_2/cryptopp562.zip"
+        $zip = "$env:TEMP\cryptopp562.zip"
+        $extract = "$env:TEMP\cryptopp562"
+        
+        Write-Host "Скачиваем Crypto++ 5.6.2..."
+        Invoke-WebRequest -Uri $url -OutFile $zip
+        
+        Write-Host "Распаковываем..."
+        Expand-Archive -Path $zip -DestinationPath $extract -Force
+        
+        # Ищем cryptlib.lib в распакованных файлах
+        $lib = Get-ChildItem -Path $extract -Recurse -Filter "cryptlib.lib" | Select-Object -First 1
+        
+        if (-not $lib) {
+          Write-Host "cryptlib.lib не найден в архиве. Смотрим содержимое:"
+          Get-ChildItem -Path $extract -Recurse | Select-Object FullName
           exit 1
         }
-
-        Copy-Item $cryptLib.FullName "$targetDir\cryptlib.lib" -Force
-        Write-Host "Скопировано: $($cryptLib.FullName) -> $targetDir\cryptlib.lib"
+        
+        Write-Host "Найден: $($lib.FullName)"
+        
+        # Кладём туда, где его ждёт старый проект
+        $targetDir = "C:\Users\Auscar\Documents\Programming\libraries\cryptopp562\Win32\Output\Release"
+        New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
+        Copy-Item $lib.FullName "$targetDir\cryptlib.lib" -Force
+        
+        Write-Host "cryptlib.lib успешно размещён в $targetDir"
 
     - name: Restore NuGet Packages
       run: nuget restore alx.sln
 
-    # 4. Запуск сборки решения
+    # 3. Запуск сборки решения
     - name: Compile Solution
       run: |
         msbuild alx.sln /t:Rebuild /p:Configuration=Release /p:Platform="Win32" /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:UseVcpkgIntegration=true /p:VcpkgEnableManifest=false /p:VcpkgTriplet=x86-windows
