@@ -16,42 +16,47 @@ jobs:
     - name: Setup MSBuild Configuration
       uses: microsoft/setup-msbuild@v2
 
-    # 1. Устанавливаем ТОЛЬКО yaml-cpp через vcpkg (он собирается нормально)
+    # 1. Устанавливаем yaml-cpp через vcpkg
     - name: Install yaml-cpp via vcpkg
       run: |
         vcpkg install yaml-cpp:x86-windows
         vcpkg integrate install
 
-    # 2. Скачиваем готовый cryptlib.lib (Crypto++ 5.6.2, Win32, Release)
-    - name: Download prebuilt cryptlib.lib
+    # 2. Скачиваем и собираем Crypto++ 5.6.2 с SourceForge
+    - name: Download and Build Crypto++ 5.6.2
       shell: pwsh
       run: |
-        $url = "https://github.com/weidai11/cryptopp/releases/download/CRYPTOPP_5_6_2/cryptopp562.zip"
+        # Ссылка на официальный архив с SourceForge
+        $url = "https://sourceforge.net/projects/cryptopp/files/cryptopp/5.6.2/cryptopp562.zip/download"
         $zip = "$env:TEMP\cryptopp562.zip"
         $extract = "$env:TEMP\cryptopp562"
-        
-        Write-Host "Скачиваем Crypto++ 5.6.2..."
+
+        Write-Host "Скачиваем исходники Crypto++ 5.6.2 с SourceForge..."
         Invoke-WebRequest -Uri $url -OutFile $zip
-        
+
         Write-Host "Распаковываем..."
         Expand-Archive -Path $zip -DestinationPath $extract -Force
-        
-        # Ищем cryptlib.lib в распакованных файлах
+
+        # Собираем cryptlib.vcxproj под Win32/Release
+        Write-Host "Собираем cryptlib.vcxproj..."
+        msbuild "$extract\cryptlib.vcxproj" /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143
+
+        # Ищем собранный cryptlib.lib
         $lib = Get-ChildItem -Path $extract -Recurse -Filter "cryptlib.lib" | Select-Object -First 1
-        
+
         if (-not $lib) {
-          Write-Host "cryptlib.lib не найден в архиве. Смотрим содержимое:"
-          Get-ChildItem -Path $extract -Recurse | Select-Object FullName
+          Write-Host "cryptlib.lib не найден после сборки. Смотрим содержимое:"
+          Get-ChildItem -Path $extract -Recurse -Filter "*.lib" | Select-Object FullName
           exit 1
         }
-        
+
         Write-Host "Найден: $($lib.FullName)"
-        
+
         # Кладём туда, где его ждёт старый проект
         $targetDir = "C:\Users\Auscar\Documents\Programming\libraries\cryptopp562\Win32\Output\Release"
         New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
         Copy-Item $lib.FullName "$targetDir\cryptlib.lib" -Force
-        
+
         Write-Host "cryptlib.lib успешно размещён в $targetDir"
 
     - name: Restore NuGet Packages
