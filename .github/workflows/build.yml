@@ -26,38 +26,52 @@ jobs:
     - name: Download and Build Crypto++ 5.6.2
       shell: pwsh
       run: |
-        # Ссылка на официальный архив с SourceForge
+        $ErrorActionPreference = "Continue"
+
         $url = "https://sourceforge.net/projects/cryptopp/files/cryptopp/5.6.2/cryptopp562.zip/download"
         $zip = "$env:TEMP\cryptopp562.zip"
         $extract = "$env:TEMP\cryptopp562"
 
-        Write-Host "Скачиваем исходники Crypto++ 5.6.2 с SourceForge..."
-        Invoke-WebRequest -Uri $url -OutFile $zip
-
-        Write-Host "Распаковываем..."
-        Expand-Archive -Path $zip -DestinationPath $extract -Force
-
-        # Собираем cryptlib.vcxproj под Win32/Release
-        Write-Host "Собираем cryptlib.vcxproj..."
-        msbuild "$extract\cryptlib.vcxproj" /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143
-
-        # Ищем собранный cryptlib.lib
-        $lib = Get-ChildItem -Path $extract -Recurse -Filter "cryptlib.lib" | Select-Object -First 1
-
-        if (-not $lib) {
-          Write-Host "cryptlib.lib не найден после сборки. Смотрим содержимое:"
-          Get-ChildItem -Path $extract -Recurse -Filter "*.lib" | Select-Object FullName
+        Write-Host "=== Шаг 1: Скачивание ==="
+        try {
+          Invoke-WebRequest -Uri $url -OutFile $zip -MaximumRedirection 5
+          Write-Host "OK, размер файла: $((Get-Item $zip).Length) байт"
+        } catch {
+          Write-Host "ОШИБКА скачивания: $_"
           exit 1
         }
 
+        Write-Host "=== Шаг 2: Распаковка ==="
+        Expand-Archive -Path $zip -DestinationPath $extract -Force
+        Write-Host "OK, содержимое папки:"
+        Get-ChildItem $extract | Select-Object Name
+
+        Write-Host "=== Шаг 3: Поиск cryptlib.vcxproj ==="
+        $proj = Get-ChildItem -Path $extract -Recurse -Filter "cryptlib.vcxproj" | Select-Object -First 1
+        if (-not $proj) {
+          Write-Host "cryptlib.vcxproj НЕ НАЙДЕН. Ищем все .vcxproj:"
+          Get-ChildItem -Path $extract -Recurse -Filter "*.vcxproj" | Select-Object FullName
+          exit 1
+        }
+        Write-Host "Найден: $($proj.FullName)"
+
+        Write-Host "=== Шаг 4: Сборка ==="
+        $msbuildOutput = msbuild $proj.FullName /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143 /v:minimal 2>&1
+        $msbuildOutput | Write-Host
+
+        Write-Host "=== Шаг 5: Поиск cryptlib.lib ==="
+        $lib = Get-ChildItem -Path $extract -Recurse -Filter "cryptlib.lib" | Select-Object -First 1
+        if (-not $lib) {
+          Write-Host "cryptlib.lib НЕ НАЙДЕН. Ищем все .lib:"
+          Get-ChildItem -Path $extract -Recurse -Filter "*.lib" | Select-Object FullName
+          exit 1
+        }
         Write-Host "Найден: $($lib.FullName)"
 
-        # Кладём туда, где его ждёт старый проект
         $targetDir = "C:\Users\Auscar\Documents\Programming\libraries\cryptopp562\Win32\Output\Release"
         New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
         Copy-Item $lib.FullName "$targetDir\cryptlib.lib" -Force
-
-        Write-Host "cryptlib.lib успешно размещён в $targetDir"
+        Write-Host "cryptlib.lib размещён в $targetDir"
 
     - name: Restore NuGet Packages
       run: nuget restore alx.sln
