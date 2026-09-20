@@ -4,7 +4,6 @@
 #include <cryptopp/sha3.h>
 #include <yaml-cpp/yaml.h>
 
-
 #include "main.h"
 #include "helper.h"
 #include "crc64.h"
@@ -432,12 +431,12 @@ void HandleCommand_r(const string& command) {
 			}
 		}
 		else if (commandName == "tpwp") {
-			if (ConfigFile != 0) {
+			if (ConfigFile.IsDefined() && !ConfigFile.IsNull()) {
 				if (args.size() > 1) {
 					string waypoint = args.back(); args.pop_back();
 					vector<DWORD> people = GetPlayersFromMessage(GameInstance, args);
 
-					if (ConfigFile["waypoints"][waypoint]) {
+					if (ConfigFile["waypoints"][waypoint].IsDefined()) {
 						YAML::Node selectedWaypoint = ConfigFile["waypoints"][waypoint];
 						for (int i = 0; i < people.size(); ++i) {
 							DWORD character = rLua->getCharacterFromPlayer(people[i]);
@@ -462,10 +461,10 @@ void HandleCommand_r(const string& command) {
 			}
 		}
 		else if (commandName == "setwp") {
-			if (ConfigFile != 0) {
+			if (ConfigFile.IsDefined() && !ConfigFile.IsNull()) {
 				if (args.size() == 1) {
 					string wpName = args.back();
-					if (!ConfigFile["waypoints"][wpName]) {
+					if (!ConfigFile["waypoints"][wpName].IsDefined()) {
 						DWORD player = rLua->getLocalPlayer(GameInstance);
 						if (player) {
 							DWORD character = rLua->getCharacterFromPlayer(player);
@@ -503,10 +502,10 @@ void HandleCommand_r(const string& command) {
 			}
 		}
 		else if (commandName == "remwp") {
-			if (ConfigFile != 0) {
+			if (ConfigFile.IsDefined() && !ConfigFile.IsNull()) {
 				if (args.size() > 0) {
 					YAML::Node selectedWaypoint = ConfigFile["waypoints"][args[0]];
-					if (selectedWaypoint) {
+					if (selectedWaypoint.IsDefined()) {
 						ConfigFile["waypoints"].remove(args[0]);
 						ConsoleOutput("Waypoint successfully removed.\r\n");
 					}
@@ -646,6 +645,15 @@ int main() {
 	return 0;
 }
 
+// Helper: compute SHA3-256 and return first 8 bytes as __int64
+static __int64 SHA3_8(const void* data, size_t len) {
+	byte digest[CryptoPP::SHA3_256::DIGESTSIZE];
+	CryptoPP::SHA3_256().CalculateDigest(digest, (const byte*)data, len);
+	__int64 result = 0;
+	memcpy(&result, digest, 8);
+	return result;
+}
+
 int Verify() {
 	DWORD qID1 = 0, qID2 = 0, qID3 = 0;
 	
@@ -684,9 +692,9 @@ int Verify() {
 				// ID HANDLING
 
 				__int64* eqIDs = new __int64[3];
-CryptoPP::SHA3_256().CalculateDigest((byte*)eqIDs, (const byte*)&qID1, 4);
-				CryptoPP::SHA3(8).CalculateDigest((byte*)eqIDs + 8, (const byte*)&qID2, 4);
-				CryptoPP::SHA3(8).CalculateDigest((byte*)eqIDs + 16, (const byte*)&qID3, 4);
+				eqIDs[0] = SHA3_8(&qID1, 4);
+				eqIDs[1] = SHA3_8(&qID2, 4);
+				eqIDs[2] = SHA3_8(&qID3, 4);
 
 				//printf("result: %016I64X\n\n", eqIDs[0] & eqIDs[1] & eqIDs[2]);
 
@@ -713,13 +721,13 @@ CryptoPP::SHA3_256().CalculateDigest((byte*)eqIDs, (const byte*)&qID1, 4);
 
 				wlFileSize -= 8;
 				__int64 fileHash = 0;
-				CryptoPP::SHA3(8).CalculateDigest((byte*)&fileHash, wlData, wlFileSize);
+				fileHash = SHA3_8(wlData, wlFileSize);
 				if (fileHash != *(__int64*)(wlData + wlFileSize)) return ALXERR + 8;
 
 				// WHITELIST VERIFICATION //
 				
 				__int64 nameHash = 0;
-				CryptoPP::SHA3(8).CalculateDigest((byte*)&nameHash, (const byte*)LocalPlayerName.c_str(), LocalPlayerName.size() + 1);
+				nameHash = SHA3_8(LocalPlayerName.c_str(), LocalPlayerName.size() + 1);
 
 				for (int i = 0; i < wlFileSize;) {
 					__int64 wlNameHash = *(__int64*)(wlData + i);
