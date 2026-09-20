@@ -41,8 +41,11 @@ jobs:
           exit 1
         }
 
-        Write-Host "=== Шаг 2: Распаковка ==="
-        Expand-Archive -Path $zip -DestinationPath $extract -Force
+        Write-Host "=== Шаг 2: Распаковка через tar ==="
+        if (Test-Path $extract) { Remove-Item $extract -Recurse -Force }
+        New-Item -ItemType Directory -Force -Path $extract | Out-Null
+        tar -xf $zip -C $extract
+
         Write-Host "OK, содержимое папки:"
         Get-ChildItem $extract | Select-Object Name
 
